@@ -5,7 +5,7 @@ from backend.block import Block, dictToBlock
 from threading import Event, Thread
 
 
-def resolveConflictConstructor(myNode: Node):
+def resolveConflictListenConstructor(myNode: Node):
     resolveConflict = Blueprint('resolveConflict', __name__)
 
     @resolveConflict.route('/', methods=['PUT'])

@@ -6,7 +6,7 @@ from threading import Event, Thread
 from time import sleep
 
 
-def recoverFromConflictConstructor(myNode: Node):
+def recoverFromConflictListenConstructor(myNode: Node):
     recoverFromConflict = Blueprint('recoverFromConflict', __name__)
 
     @recoverFromConflict.route('/', methods=['PUT'])

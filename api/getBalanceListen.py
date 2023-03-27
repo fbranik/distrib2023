@@ -2,7 +2,7 @@ import requests
 from flask import request, Blueprint, jsonify
 
 
-def getBalanceConstructor(myNode):
+def getBalanceListenConstructor(myNode):
     getBalance = Blueprint('getBalance', __name__)
 
     @getBalance.route('/', methods=['GET'])

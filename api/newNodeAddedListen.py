@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, render_template, Blueprint
 from backend.node import Node
 
 
-def newNodeAddedConstructor(myNode: Node):
+def newNodeAddedListenConstructor(myNode: Node):
     newNodeAdded = Blueprint('newNodeAdded', __name__)
 
     @newNodeAdded.route('/', methods=['GET', 'PUT'])
@@ -21,7 +21,7 @@ def newNodeAddedConstructor(myNode: Node):
 
             # send the new node id and the current state of the blockchain
             chainState = myNode.chain.getlistOfDictBlocks()
-            response = {'newNodeId': myNode.nodeCount - 1, 'blockchainState': chainState,
+            response = {'newNodeId'          : myNode.nodeCount - 1, 'blockchainState': chainState,
                         'unminedTransactions': myNode.runningBlock.listOfTransactions}
             return jsonify(response), 200
         if request.method == 'PUT':

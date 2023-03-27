@@ -8,7 +8,7 @@ from os.path import exists
 from os import remove as removeFile
 
 
-def runTestsConstructor(myNode: Node, myIp, myPort):
+def runTestsListenConstructor(myNode: Node, myIp, myPort):
     runTests = Blueprint('runTests', __name__)
 
     @runTests.route('/', methods=['GET'])

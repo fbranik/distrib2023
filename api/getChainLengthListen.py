@@ -2,7 +2,7 @@ import requests
 from flask import request, Blueprint, jsonify
 
 
-def getChainLengthConstructor(myNode):
+def getChainLengthListenConstructor(myNode):
     getChainLength = Blueprint('getChainLength', __name__)
 
     @getChainLength.route('/', methods=['GET'])

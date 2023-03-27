@@ -2,11 +2,11 @@ from time import time
 
 
 class Blockchain:
-    '''
-    Implements the list of blocks. 
-    Initialise with a given size of block 
+    """
+    Implements the list of blocks.
+    Initialise with a given size of block
     (maximum number of transactions per block)
-    '''
+    """
 
     def __init__(self, blockSize):
         self.listOfBlocks = []
@@ -23,6 +23,6 @@ class Blockchain:
         return [block.toDict() for block in self.listOfBlocks]
 
     def getLastBlock(self):
-        if (len(self.listOfBlocks) == 0):
+        if len(self.listOfBlocks) == 0:
             return None
         return self.listOfBlocks[-1]

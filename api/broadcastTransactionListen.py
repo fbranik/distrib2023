@@ -5,7 +5,7 @@ from backend.node import Node
 import json
 
 
-def broadcastTransactionConstructor(myNode: Node):
+def broadcastTransactionListenConstructor(myNode: Node):
     broadcastTransaction = Blueprint('broadcastTransaction', __name__)
 
     @broadcastTransaction.route('/', methods=['PUT'])
@@ -18,7 +18,7 @@ def broadcastTransactionConstructor(myNode: Node):
         if myNode.validate_transaction(newTransaction):
             for k, v in myNode.nodesTable.items():
                 print(k, myNode.wallet_balance(v['walletAddress']))
-            print("\n", myNode.conflictActive, myNode.Choosing, "\n")
+            print("\n")
             myNode.addTransactionToBlock(newTransaction)
 
             transactions_log = open(f'logs/transactions{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt',

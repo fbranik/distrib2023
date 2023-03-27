@@ -2,7 +2,7 @@ import requests
 from flask import request, Blueprint, jsonify
 
 
-def createNewTransactionConstructor(myNode):
+def createNewTransactionListenConstructor(myNode):
     createNewTransaction = Blueprint('createNewTransaction', __name__)
 
     @createNewTransaction.route('/', methods=['GET'])
@@ -10,7 +10,7 @@ def createNewTransactionConstructor(myNode):
         # Get the transaction details from the request and make the required changes
         senderId = myNode.Id
         recipientId = request.args.get(
-            'recipientId', default=myNode.Id, type=int)
+                'recipientId', default=myNode.Id, type=int)
         amount = request.args.get('amount', default=0, type=int)
 
         # check to see if the senderAdress and the recipientAdress are in the nodesTable
@@ -26,7 +26,7 @@ def createNewTransactionConstructor(myNode):
             else:
                 myBalance = myNode.wallet_balance(myNode.wallet.public_key)
                 return jsonify({'Error': "Not enough NBCs: Sender Balance={}, Transaction amount = {}\n".format(
-                    myBalance, amount)}), 500
+                        myBalance, amount)}), 500
         else:
             return jsonify({'Error': "Invalid nodes Table\n"}), 500
 

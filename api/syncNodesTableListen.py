@@ -6,7 +6,7 @@ import threading
 from time import sleep
 
 
-def syncNodesTableConstructor(myNode: Node):
+def syncNodesTableListenConstructor(myNode: Node):
     syncNodesTable = Blueprint('syncNodesTable', __name__)
 
     @syncNodesTable.route('/', methods=['GET', 'PUT'])

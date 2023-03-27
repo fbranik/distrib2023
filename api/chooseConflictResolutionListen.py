@@ -6,7 +6,7 @@ from threading import Event, Thread
 from time import sleep
 
 
-def chooseConflictResolutionConstructor(myNode: Node):
+def chooseConflictResolutionListenConstructor(myNode: Node):
     chooseConflictResolution = Blueprint('chooseConflictResolution', __name__)
 
     @chooseConflictResolution.route('/', methods=['PUT', 'GET'])

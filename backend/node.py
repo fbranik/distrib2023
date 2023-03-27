@@ -3,32 +3,32 @@ from backend.wallet import Wallet
 from backend.blockchain import Blockchain
 from backend.transaction import Transaction, dictToTransaction
 from backend.transaction_input import TransactionInput
-from backend.transaction_output import TransactionOutput
+from backend.broadcastRequest import broadcastRequest
 import requests
-import json
 from sys import maxsize
 from random import randint
 from threading import Event
-from threading import Thread, Lock, get_ident
+from threading import Thread, Lock
+from multiprocessing import Queue
 from datetime import datetime
-from time import time, sleep
-from collections import OrderedDict
+from time import sleep
 
 
 class Node:
     def __init__(self, blockchain: Blockchain, difficulty: int, wallet: Wallet = None, isBootstrap=False):
         self.chain = blockchain
         self.difficulty = difficulty
-        self.miningStopEvents = {}
+        self.miningStopEvent = Event()
         self.conflictActive = False
         self.Choosing = False
         self.conflictsTable = {}
         self.conflictedChainSizes = {}
-        self.acquiredTansactions = {}
+        self.acquiredTransactions = {}
         self.recoveryTransactions = {}
         self.chainLock = Lock()
-
+        # initialize a block to add transactions in it
         self.runningBlock = Block(self.chain.sizeOfBlock)
+        # list of transactions in the block that's being mined
         if wallet is not None:
             # if a wallet already exist no need to create a new one
             self.wallet = wallet
@@ -45,24 +45,27 @@ class Node:
         self.utxos = {}
         self.utxos[self.wallet.public_key] = {}
         self.nodesTable = None
+        self.miningQueue = Queue()
+        thread = Thread(target=self.mine_block, args=(self.miningStopEvent,), daemon=True)
+        thread.start()
 
     def generate_wallet(self):
         self.wallet = Wallet()
 
     def syncNodesTable(self, id, walletAddress, balance, ip, port, utxos=None):
-        '''
+        """
         Method to update the nodesTable dictionary of the node
         When a new node is created, this should be ran with the
         ip of the node, as well as with the values from the
         already existant table from the other nodes
-        '''
+        """
         if self.nodesTable is None:
             self.nodesTable = {}
 
         self.nodesTable[id] = {'walletAddress': walletAddress,
                                'walletBalance': balance,
-                               'ip': ip,
-                               'port': port
+                               'ip'           : ip,
+                               'port'         : port
                                }
 
         if utxos is not None:
@@ -83,7 +86,7 @@ class Node:
                 break
             sum += utxo['amount']
             transaction_inputs.append(TransactionInput(
-                utxo['transaction_output_id'], utxo['amount']))
+                    utxo['transaction_output_id'], utxo['amount']))
 
         if sum < value:
             # not enough NBCs
@@ -91,7 +94,7 @@ class Node:
 
         # create the new transaction and sign it
         transaction = Transaction(
-            sender_address, receiver_address, value, transaction_inputs)
+                sender_address, receiver_address, value, transaction_inputs)
         transaction.sign_transaction(self.wallet.private_key)
 
         # remove previous utxos using the keys from the transaction inputs
@@ -114,15 +117,10 @@ class Node:
         return transaction
 
     def broadcast_transaction(self, transaction: Transaction):
-        '''
+        """
         Method to broadcast a transaction to every node found in the nodesTable
-        '''
-
-        for id, tableInfoDict in self.nodesTable.items():
-            if self.Id != id:
-                addressString = f"http://{tableInfoDict['ip']}:{tableInfoDict['port']}/api/broadcastTransaction"
-                requests.put(addressString, json=transaction.toDict(), timeout=1000)
-
+        """
+        broadcastRequest("/api/broadcastTransaction", self.nodesTable, self.Id, json=transaction.toDict())
         # add the transaction to my running block
         self.addTransactionToBlock(transaction)
 
@@ -172,7 +170,7 @@ class Node:
         return True
 
     def wallet_balance(self, walletAddress=None):
-        if (walletAddress == None):
+        if walletAddress == None:
             walletAddress = self.wallet.public_key
         sum = 0
         for _, utxo in self.utxos[walletAddress].items():
@@ -180,98 +178,88 @@ class Node:
         return sum
 
     def addTransactionToBlock(self, transaction: Transaction):
-        # if theres an active conflict, add the transaction to
-        # the transactions to be recovered
-
         currentRunningBlock = self.runningBlock
-        self.acquiredTansactions[transaction.transaction_id] = currentRunningBlock
+        self.acquiredTransactions[transaction.transaction_id] = {'block'       : currentRunningBlock,
+                                                                 'isBeingMined': False}
         isBlockFull = currentRunningBlock.add_transaction(transaction)
 
         if isBlockFull:
-            currentRunningBlock.previousHash = self.chain.getLastBlock().getHash()
+            self.miningQueue.put(currentRunningBlock)
             self.runningBlock = Block(self.chain.sizeOfBlock)
-            stopEvent = Event()
-            thread = Thread(target=self.mine_block, args=(currentRunningBlock, stopEvent,))
-            self.miningStopEvents[currentRunningBlock.timestamp] = stopEvent
-            thread.start()
 
-    def mine_block(self, block: Block, stopEvent: Event):
+    def mine_block(self, stopEvent: Event):
 
-        block.nonce = randint(0, maxsize)
-        interuptedFlag = stopEvent.is_set()
+        while True:
 
-        # print('starting mining',self.chain.getLastBlock().getHash())
-        while not (block.getHash().startswith(self.difficulty * '0') or interuptedFlag or self.conflictActive):
-            startingTransactions = block.getAllTransactionsIds()
-            interuptedFlag = stopEvent.is_set()
-            block.nonce = randint(0, maxsize)
-            block.hash = None
-
-        if not (interuptedFlag or self.conflictActive):
-            if startingTransactions == block.getAllTransactionsIds():
-                print("\n-----------------Mined block-----------------\n")
-                if not self.conflictActive:
-                    self.chainLock.acquire()
-
-                    self.chain.addBlock(block)
-                    self.chainLock.release()
-                    # print("mpike kai sto chain")
-                    for miningEvent in self.miningStopEvents.values():
-                        miningEvent.set()
-                if not self.conflictActive:
-                    if block.timestamp in self.miningStopEvents:
-                        del self.miningStopEvents[block.timestamp]
-                        self.broadcast_block(block)
-                        for iTransaction in block.listOfTransactions.keys():
-                            try:
-                                del self.acquiredTansactions[iTransaction]
-                            except:
-                                pass
-
-        else:
-            # print("mining interupted" ,self.chain.getLastBlock().getHash())
-            acquiredTansactions = self.acquiredTansactions.copy().keys()
-            for iTransactionId in block.listOfTransactions.copy().keys():
-                if iTransactionId in acquiredTansactions:
+            while self.conflictActive:
+                # busy wait for conflict to be resolved
+                pass
+            block = self.miningQueue.get()
+            if block is not None:
+                for iTransaction in block.listOfTransactions.keys():
                     try:
-                        if not iTransactionId in self.chain.getLastBlock().listOfTransactions.keys():
-                            self.addTransactionToBlock(dictToTransaction(block.listOfTransactions[iTransactionId]))
+                        self.acquiredTransactions[iTransaction]['isBeingMined'] = True
                     except:
                         pass
+                block.previousHash = self.chain.getLastBlock().getHash()
+                block.nonce = randint(0, maxsize)
+                startingTransactions = block.getAllTransactionsIds()
+                print("\n---------------Starting Mining---------------\n")
+                while not (block.getHash().startswith(self.difficulty * '0') or stopEvent.is_set()):
+                    block.nonce = randint(0, maxsize)
+                    block.hash = None
+
+                if not stopEvent.is_set() and startingTransactions == block.getAllTransactionsIds():
+                    print("\n-----------------Mined block-----------------\n")
+                    if not self.conflictActive:
+                        self.chainLock.acquire()
+                        self.chain.addBlock(block)
+                        self.chainLock.release()
+
+                        self.broadcast_block(block)
+                else:
+                    # mining was interrupted either because a new block had some
+                    # transactions that were in the block being mined
+                    # or because a  conflict was detected
+                    print("\n-------------Mining Interrupted--------------\n")
+                    # busy wait until mining can restart
+                    self.miningStopEvent.clear()
 
     def broadcast_block(self, block: Block):
-        for id, tableInfoDict in self.nodesTable.items():
-            if self.Id != id:
-                addressString = f"http://{tableInfoDict['ip']}:{tableInfoDict['port']}/api/broadcastBlock"
-                if not self.conflictActive:
-                    response = requests.put(addressString, json=block.toDict(), timeout=1000)
+        # delete the blocks transactions from my acquired transactions
+        for iTransaction in block.listOfTransactions.keys():
+                try:
+                    del self.acquiredTransactions[iTransaction]
+                except:
+                    pass
+        broadcastRequest("/api/broadcastBlock", self.nodesTable, self.Id, json=block.toDict())
 
     def validate_block(self, block: Block, currentLastBlockHash=None, chain: Blockchain = None):
-        if chain == None:
+        if chain is None:
             chain = self.chain
-        if currentLastBlockHash == None:
+        if currentLastBlockHash is None:
             currentLastBlockHash = '1'
             lastBlock = chain.getLastBlock()
-            if (lastBlock != None):
+            if lastBlock != None:
                 currentLastBlockHash = chain.getLastBlock().getHash()
         # 'wrongHash' for invalid block hash
         # 'conflict' for conflict in previous Hash
         # 'valid' for fully valid block
         if not block.getHash().startswith(self.difficulty * '0'):
             # print('oxi starts with')
-            return (False, 'wrongHash')
+            return False, 'wrongHash'
         currentLastBlockHash = chain.getLastBlock().getHash()
         if block.previousHash != currentLastBlockHash:
             # print('oxi consensus')
-            return (False, 'conflict')
+            return False, 'conflict'
         elif self.conflictActive:
             # print('ksypna')
             return False, ''
 
-        return (True, 'valid')
+        return True, 'valid'
 
     def validate_chain(self, chain=None):
-        if chain == None:
+        if chain is None:
             chain = self.chain
         blocksList = chain.listOfBlocks
         genesis = blocksList[0]
@@ -284,21 +272,12 @@ class Node:
             currentLastBlockHash = blocksList[i].getHash()
         return True
 
-    def wallet_balance(self, walletAddress=None):
-        if (walletAddress == None):
-            walletAddress = self.wallet.public_key
-        sum = 0
-        for _, utxo in self.utxos[walletAddress].items():
-            sum += utxo['amount']
-        return sum
-
     def resolve_conflict(self, broadcast=True):
         # pause mining
         self.conflictRole = broadcast
         self.conflictActive = True
         # stop all mining threads
-        for _, event in self.miningStopEvents.items():
-            event.set()
+        self.miningStopEvent.set()
         self.nodeCount = len(self.nodesTable)
         self.conflictedChainSizes[str(self.Id)] = len(self.chain.listOfBlocks)
         if broadcast:
@@ -349,7 +328,7 @@ class Node:
             chosenInfo = self.nodesTable[chosenChainId]
             addressString = f"http://{chosenInfo['ip']}:{chosenInfo['port']}/api/chooseConflictResolution"
             response = requests.put(addressString,
-                                    json={"lastBlockHash": self.chain.getLastBlock().getHash(),
+                                    json={"lastBlockHash"     : self.chain.getLastBlock().getHash(),
                                           "numOfInvalidBlocks": countInvalidBlocks},
                                     timeout=1000)
 
@@ -358,7 +337,7 @@ class Node:
                 countInvalidBlocks += 1
                 # print("eeeeeee",self.chain.listOfBlocks.pop())
                 response = requests.put(addressString,
-                                        json={"lastBlockHash": self.chain.getLastBlock().getHash(),
+                                        json={"lastBlockHash"     : self.chain.getLastBlock().getHash(),
                                               "numOfInvalidBlocks": countInvalidBlocks},
                                         timeout=1000)
 
@@ -436,7 +415,7 @@ class Node:
             transactions[i] = {}
             transactions[i]["amount"] = transaction["amount"]
             transactions[i]["receiver_address"] = pkeyToId[transaction["receiver_address"]]
-            if (transaction["sender_address"] != '0'):
+            if transaction["sender_address"] != '0':
                 transactions[i]["sender_address"] = pkeyToId[transaction["sender_address"]]
             transactions[i]["timestamp"] = datetime.fromtimestamp(transaction["timestamp"])
         return transactions

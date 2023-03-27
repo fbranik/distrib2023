@@ -2,7 +2,7 @@ import requests
 from flask import request, Blueprint, jsonify
 
 
-def viewTransactionsConstructor(myNode):
+def viewTransactionsListenConstructor(myNode):
     viewTransactions = Blueprint('viewTransactions', __name__)
 
     @viewTransactions.route('/', methods=['GET'])

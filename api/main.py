@@ -11,24 +11,24 @@ thisFilePath = dirname(realpath(__file__))
 noobcashPath = dirname(thisFilePath)
 path.append(noobcashPath)
 
-from api.createNewTransaction import createNewTransactionConstructor
-from api.syncNodesTable import syncNodesTableConstructor
-from api.newNodeAdded import newNodeAddedConstructor
-from api.broadcastTransaction import broadcastTransactionConstructor
-from api.broadcastBlock import broadcastBlockConstructor
-from api.getBalance import getBalanceConstructor
-from api.viewTransactions import viewTransactionsConstructor
-from api.runTests import runTestsConstructor
-from api.getChain import getChainConstructor
-from api.getChainLength import getChainLengthConstructor
+from api.createNewTransactionListen import createNewTransactionListenConstructor
+from api.syncNodesTableListen import syncNodesTableListenConstructor
+from api.newNodeAddedListen import newNodeAddedListenConstructor
+from api.broadcastTransactionListen import broadcastTransactionListenConstructor
+from api.broadcastBlockListen import broadcastBlockListenConstructor
+from api.getBalanceListen import getBalanceListenConstructor
+from api.viewTransactionsListen import viewTransactionsListenConstructor
+from api.runTestsListen import runTestsListenConstructor
+from api.getChainListen import getChainListenConstructor
+from api.getChainLengthListen import getChainLengthListenConstructor
 from backend.transaction import Transaction, dictToTransaction
 from backend.wallet import Wallet
 from backend.blockchain import Blockchain
 from backend.node import Node
 from backend.block import Block, dictToBlock
-from api.resolveConflict import resolveConflictConstructor
-from api.chooseConflictResolution import chooseConflictResolutionConstructor
-from api.recoverFromConflict import recoverFromConflictConstructor
+from api.resolveConflictListen import resolveConflictListenConstructor
+from api.chooseConflictResolutionListen import chooseConflictResolutionListenConstructor
+from api.recoverFromConflictListen import recoverFromConflictListenConstructor
 import logging
 from os.path import exists
 from os import remove as removeFile
@@ -75,7 +75,7 @@ if __name__ == '__main__':
                         help='ip of Bootstrap Node')
     parser.add_argument('-n', '--numberOfNodes', default=5, type=int,
                         help='Number of Nodes that will participate')
-    parser.add_argument('-d', '--miningDifficulty', default=4, type=int,
+    parser.add_argument('-d', '--miningDifficulty', default=5, type=int,
                         help='Number of of leading 0s in a valid Block hash')
     parser.add_argument('-c', '--blockSize', default=5, type=int,
                         help='Transactions per Block')
@@ -85,7 +85,7 @@ if __name__ == '__main__':
     myIp = args.ipAddress
     bootstrapAdress = args.bootstrapAdress
     isBootstrap = False
-    if (bootstrapAdress == ''):
+    if bootstrapAdress == '':
         bootstrapAdress = myIp
         isBootstrap = True
     numberOfNodes = args.numberOfNodes
@@ -95,44 +95,44 @@ if __name__ == '__main__':
     blockchain = Blockchain(blockSize)
     myNode = Node(blockchain=blockchain, isBootstrap=isBootstrap, difficulty=difficulty)
 
-    newNodeAdded = newNodeAddedConstructor(myNode)
+    newNodeAdded = newNodeAddedListenConstructor(myNode)
     app.register_blueprint(newNodeAdded, url_prefix='/api/newNodeAdded')
 
-    syncNodesTable = syncNodesTableConstructor(myNode)
+    syncNodesTable = syncNodesTableListenConstructor(myNode)
     app.register_blueprint(syncNodesTable, url_prefix='/api/syncNodesTable')
 
-    createNewTransaction = createNewTransactionConstructor(myNode)
+    createNewTransaction = createNewTransactionListenConstructor(myNode)
     app.register_blueprint(createNewTransaction,
                            url_prefix='/api/createNewTransaction')
 
-    broadcastTransaction = broadcastTransactionConstructor(myNode)
+    broadcastTransaction = broadcastTransactionListenConstructor(myNode)
     app.register_blueprint(broadcastTransaction, url_prefix='/api/broadcastTransaction')
 
-    resolveConflict = resolveConflictConstructor(myNode)
+    resolveConflict = resolveConflictListenConstructor(myNode)
     app.register_blueprint(resolveConflict, url_prefix='/api/resolveConflicts')
 
-    chooseConflictResolution = chooseConflictResolutionConstructor(myNode)
+    chooseConflictResolution = chooseConflictResolutionListenConstructor(myNode)
     app.register_blueprint(chooseConflictResolution, url_prefix='/api/chooseConflictResolution')
 
-    broadcastBlock = broadcastBlockConstructor(myNode)
+    broadcastBlock = broadcastBlockListenConstructor(myNode)
     app.register_blueprint(broadcastBlock, url_prefix='/api/broadcastBlock')
 
-    getBalance = getBalanceConstructor(myNode)
+    getBalance = getBalanceListenConstructor(myNode)
     app.register_blueprint(getBalance, url_prefix='/api/getBalance')
 
-    viewTransactions = viewTransactionsConstructor(myNode)
+    viewTransactions = viewTransactionsListenConstructor(myNode)
     app.register_blueprint(viewTransactions, url_prefix='/api/viewTransactions')
 
-    recoverFromConflict = recoverFromConflictConstructor(myNode)
+    recoverFromConflict = recoverFromConflictListenConstructor(myNode)
     app.register_blueprint(recoverFromConflict, url_prefix='/api/runRecoverFromConflict')
 
-    runTests = runTestsConstructor(myNode, myIp, myPort)
+    runTests = runTestsListenConstructor(myNode, myIp, myPort)
     app.register_blueprint(runTests, url_prefix='/api/runTests')
 
-    getChain = getChainConstructor(myNode)
+    getChain = getChainListenConstructor(myNode)
     app.register_blueprint(getChain, url_prefix='/api/getChain')
 
-    getChainLength = getChainLengthConstructor(myNode)
+    getChainLength = getChainLengthListenConstructor(myNode)
     app.register_blueprint(getChainLength, url_prefix='/api/getChainLength')
 
     # Write my pulic and private key files
@@ -202,14 +202,14 @@ if __name__ == '__main__':
 
         # Get the bootstrap node's table
         bootsrapResponse = requests.get(
-            f'http://{bootstrapAdress}:{bootstrapPort}/api/syncNodesTable')
+                f'http://{bootstrapAdress}:{bootstrapPort}/api/syncNodesTable')
         bootsrapNodesTable = bootsrapResponse.json()['nodesTable']
 
         # Write the entries to myNode's table
         for id, infoDict in bootsrapNodesTable.items():
             myNode.syncNodesTable(
-                int(id), infoDict['walletAddress'], infoDict['walletBalance'], infoDict['ip'], infoDict['port'],
-                bootsrapResponse.json()['utxos'])
+                    int(id), infoDict['walletAddress'], infoDict['walletBalance'], infoDict['ip'], infoDict['port'],
+                    bootsrapResponse.json()['utxos'])
 
         # Broadcast my info to every node found on myNode's updated table using a PUT request
         for id, tableInfoDict in myNode.nodesTable.items():

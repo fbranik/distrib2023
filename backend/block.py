@@ -6,16 +6,16 @@ from time import time
 
 
 class Block:
-    '''
+    """
     Implements blockchain block.
     Initialize after having initialized the blockchain
-    '''
+    """
 
     def __init__(self, capacity):
-        '''
+        """
         Initializes a block that is to be filled validated
         and then added to the blockchain
-        '''
+        """
         self.previousHash = None
         self.timestamp = time()
         self.hash = None
@@ -26,11 +26,11 @@ class Block:
 
     def toDict(self):
         outDict = {
-            'previousHash': self.previousHash,
-            'timestamp': self.timestamp,
-            'nonce': self.nonce,
-            'listOfTransactions': self.listOfTransactions,
-            'capacity': self.capacity
+                'previousHash'      : self.previousHash,
+                'timestamp'         : self.timestamp,
+                'nonce'             : self.nonce,
+                'listOfTransactions': self.listOfTransactions,
+                'capacity'          : self.capacity
         }
 
         return outDict
@@ -39,11 +39,11 @@ class Block:
         return len(self.listOfTransactions)
 
     def getAllTransactionsIds(self):
-        '''
+        """
         Aux function to return a string of
         all the transactions Ids in the block
         so that it can be hashed
-        '''
+        """
         transactionsIdsString = ''
 
         for iTransactionId in sorted(self.listOfTransactions.keys()):
@@ -52,9 +52,9 @@ class Block:
         return transactionsIdsString
 
     def getHash(self):
-        '''
+        """
         Method that returns hash of block data
-        '''
+        """
 
         sha256Hasher = hashes.Hash(SHA256())
         transactionsIdsString = self.getAllTransactionsIds()
@@ -69,12 +69,12 @@ class Block:
         return self.hash.hex()
 
     def add_transaction(self, transaction: Transaction):
-        '''
+        """
         Adds transaction to the block
         Returns True if the block is full
         so that the callee can check if
         it can start mining the block.
-        '''
+        """
         self.listOfTransactions[transaction.transaction_id] = transaction.toDict()
         return len(self) == self.capacity
 

@@ -8,9 +8,9 @@ from time import time
 
 
 class Transaction:
-    '''
+    """
     Implements a transaction
-    '''
+    """
 
     def __init__(self, sender_address, recipient_address, value, transaction_inputs):
 
@@ -47,13 +47,13 @@ class Transaction:
 
     def toDict(self):
         outDict = {
-            'sender_address': self.sender_address,
-            'receiver_address': self.receiver_address,
-            'amount': self.amount,
-            'timestamp': self.timestamp,
-            'transaction_id': self.transaction_id,
-            'transaction_inputs': self.transaction_inputs,
-            'transaction_outputs': self.transaction_outputs
+                'sender_address'     : self.sender_address,
+                'receiver_address'   : self.receiver_address,
+                'amount'             : self.amount,
+                'timestamp'          : self.timestamp,
+                'transaction_id'     : self.transaction_id,
+                'transaction_inputs' : self.transaction_inputs,
+                'transaction_outputs': self.transaction_outputs
         }
         if self.signature is not None:
             outDict['signature'] = self.signature.hex()
@@ -63,9 +63,9 @@ class Transaction:
         return self.transaction_id
 
     def sign_transaction(self, private_key):
-        '''
+        """
         Sign transaction with private key
-        '''
+        """
         sender_private_key = serialization.load_pem_private_key(bytes.fromhex(private_key), password=None)
         signatureData = (str(self)).encode()
         self.signature = sender_private_key.sign(signatureData,
@@ -75,12 +75,12 @@ class Transaction:
                                                  )
 
     def verify_signature(self):
-        '''
+        """
         Verfiy a Transaction using a public key
-        If the tansaction id matches the 
+        If the tansaction id matches the
         give publi_key matches the senders return true
         else False
-        '''
+        """
         sender_public_key = serialization.load_ssh_public_key(bytes.fromhex(self.sender_address))
         signatureData = (str(self)).encode()
 
@@ -88,8 +88,8 @@ class Transaction:
             sender_public_key.verify(self.signature,
                                      signatureData,
                                      padding.PSS(
-                                         mgf=padding.MGF1(SHA256()),
-                                         salt_length=padding.PSS.MAX_LENGTH),
+                                             mgf=padding.MGF1(SHA256()),
+                                             salt_length=padding.PSS.MAX_LENGTH),
                                      SHA256()
                                      )
         except:
