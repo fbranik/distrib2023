@@ -33,13 +33,13 @@ import logging
 from os.path import exists
 from os import remove as removeFile
 
-
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.disabled = True
 CORS(app)
 
 bootstrapPort = '5000'
+
 
 # get all transactions in the blockchain
 
@@ -54,21 +54,22 @@ def get_transactions():
 @app.route('/api/writeBlockLogs', methods=["GET"])
 def writeBlockLogs():
     if exists(f'logs/block{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt'):
-            removeFile(f'logs/block{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt')
-    
+        removeFile(f'logs/block{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt')
+
     block_log = open(f'logs/block{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt', 'a')
     for iBlock in myNode.chain.listOfBlocks:
-        block_log.write(f'{iBlock.addedToChainTimestamp-iBlock.timestamp}\n')
+        block_log.write(f'{iBlock.addedToChainTimestamp - iBlock.timestamp}\n')
     block_log.close()
     return 'writing block logs', 200
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('-p', '--port',        default=5000,
+    parser.add_argument('-p', '--port', default=5000,
                         type=int, help='port to listen on')
-    parser.add_argument('-a', '--ipAddress',   default='127.0.0.1',
+    parser.add_argument('-a', '--ipAddress', default='127.0.0.1',
                         type=str, help='ip address to be used')
     parser.add_argument('-b', '--bootstrapAdress', default='', type=str,
                         help='ip of Bootstrap Node')
@@ -79,18 +80,18 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--blockSize', default=5, type=int,
                         help='Transactions per Block')
 
-    args          = parser.parse_args()
-    myPort        = args.port
-    myIp          = args.ipAddress
+    args = parser.parse_args()
+    myPort = args.port
+    myIp = args.ipAddress
     bootstrapAdress = args.bootstrapAdress
     isBootstrap = False
-    if(bootstrapAdress == ''):
+    if (bootstrapAdress == ''):
         bootstrapAdress = myIp
         isBootstrap = True
     numberOfNodes = args.numberOfNodes
-    difficulty    = args.miningDifficulty
-    blockSize     = args.blockSize
-    
+    difficulty = args.miningDifficulty
+    blockSize = args.blockSize
+
     blockchain = Blockchain(blockSize)
     myNode = Node(blockchain=blockchain, isBootstrap=isBootstrap, difficulty=difficulty)
 
@@ -103,7 +104,7 @@ if __name__ == '__main__':
     createNewTransaction = createNewTransactionConstructor(myNode)
     app.register_blueprint(createNewTransaction,
                            url_prefix='/api/createNewTransaction')
-    
+
     broadcastTransaction = broadcastTransactionConstructor(myNode)
     app.register_blueprint(broadcastTransaction, url_prefix='/api/broadcastTransaction')
 
@@ -121,7 +122,7 @@ if __name__ == '__main__':
 
     viewTransactions = viewTransactionsConstructor(myNode)
     app.register_blueprint(viewTransactions, url_prefix='/api/viewTransactions')
-    
+
     recoverFromConflict = recoverFromConflictConstructor(myNode)
     app.register_blueprint(recoverFromConflict, url_prefix='/api/runRecoverFromConflict')
 
@@ -134,16 +135,15 @@ if __name__ == '__main__':
     getChainLength = getChainLengthConstructor(myNode)
     app.register_blueprint(getChainLength, url_prefix='/api/getChainLength')
 
-
     # Write my pulic and private key files
-    myNode.writeWalletFiles('private{}.pem'.format(myPort), 
+    myNode.writeWalletFiles('private{}.pem'.format(myPort),
                             'public{}.key'.format(myPort))
-    
+
     # if this is the bootstap node, add the first entry to the table
     if isBootstrap:
         # Create the genesis block and add it to the blockchain        
         genesisBlock = Block(blockchain.sizeOfBlock)
-        transactionZero = Transaction('0', myNode.wallet.public_key, 100*numberOfNodes, [])
+        transactionZero = Transaction('0', myNode.wallet.public_key, 100 * numberOfNodes, [])
         genesisBlock.add_transaction(transactionZero)
         myNode.wallet.transactions.append(transactionZero)
         genesisBlock.previousHash = '1'
@@ -152,27 +152,27 @@ if __name__ == '__main__':
         blockchain.addBlock(genesisBlock)
 
         # Add my info to myNode's table
-        myNode.syncNodesTable(myNode.Id, myNode.wallet.public_key, 
+        myNode.syncNodesTable(myNode.Id, myNode.wallet.public_key,
                               myNode.wallet_balance(myNode.wallet.public_key), myIp, myPort)
-        
+
         # Initialize transactionZero utxos
         transactionZeroOutputs = transactionZero.transaction_outputs
         for transaction_output_id, utxo in transactionZeroOutputs.items():
             if utxo['recipient_id'] != '0':
                 utxoBootstrap = utxo
         myNode.utxos[myNode.wallet.public_key][utxoBootstrap['transaction_output_id']] = utxoBootstrap
-        
 
-        
+
+
     # if the node isn't the bootstrap node, then communicate with it
     # to get my ID and to synchronise the node tables
     else:
         # make a request to the boostrap node and process the data it returns
-        addressString    = f'http://{bootstrapAdress}:{bootstrapPort}/api/newNodeAdded'
+        addressString = f'http://{bootstrapAdress}:{bootstrapPort}/api/newNodeAdded'
         bootsrapResponse = requests.get(addressString)
-        myNode.Id        = int(bootsrapResponse.json()['newNodeId'])
+        myNode.Id = int(bootsrapResponse.json()['newNodeId'])
         myNode.nodeCount = myNode.Id + 1
-        tempChainList    = bootsrapResponse.json()['blockchainState']    
+        tempChainList = bootsrapResponse.json()['blockchainState']
 
         # get the blocks from the blockchain that was sent
         for iBlockDict in reversed(tempChainList):
@@ -189,7 +189,7 @@ if __name__ == '__main__':
         #         transactionZeroUTXO = output
         #         break
         # add transactionZero to as a utxo entry in the bootstrap wallet address
-        
+
         # tempRecipient = transactionZeroUTXO['recipient_id']
         # tempOutId = transactionZeroUTXO['transaction_output_id']
 
@@ -197,7 +197,7 @@ if __name__ == '__main__':
         # myNode.utxos[tempRecipient][tempOutId] = transactionZeroUTXO
 
         # Add my info to myNode's table
-        myNode.syncNodesTable(myNode.Id, myNode.wallet.public_key, 
+        myNode.syncNodesTable(myNode.Id, myNode.wallet.public_key,
                               myNode.wallet.balance(), myIp, myPort)
 
         # Get the bootstrap node's table
@@ -208,12 +208,13 @@ if __name__ == '__main__':
         # Write the entries to myNode's table
         for id, infoDict in bootsrapNodesTable.items():
             myNode.syncNodesTable(
-                int(id), infoDict['walletAddress'], infoDict['walletBalance'], infoDict['ip'], infoDict['port'], bootsrapResponse.json()['utxos'])
+                int(id), infoDict['walletAddress'], infoDict['walletBalance'], infoDict['ip'], infoDict['port'],
+                bootsrapResponse.json()['utxos'])
 
-         # Broadcast my info to every node found on myNode's updated table using a PUT request
+        # Broadcast my info to every node found on myNode's updated table using a PUT request
         for id, tableInfoDict in myNode.nodesTable.items():
             if myNode.Id != id:
                 addressString = f"http://{tableInfoDict['ip']}:{tableInfoDict['port']}/api/syncNodesTable"
-                requests.put(addressString, json={'myNodesTable':myNode.nodesTable, 'utxo': myNode.utxos})
+                requests.put(addressString, json={'myNodesTable': myNode.nodesTable, 'utxo': myNode.utxos})
 
     app.run(host=myIp, port=myPort)

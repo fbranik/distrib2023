@@ -14,10 +14,11 @@ from datetime import datetime
 from time import time, sleep
 from collections import OrderedDict
 
+
 class Node:
     def __init__(self, blockchain: Blockchain, difficulty: int, wallet: Wallet = None, isBootstrap=False):
         self.chain = blockchain
-        self.difficulty   = difficulty
+        self.difficulty = difficulty
         self.miningStopEvents = {}
         self.conflictActive = False
         self.Choosing = False
@@ -48,7 +49,6 @@ class Node:
     def generate_wallet(self):
         self.wallet = Wallet()
 
-
     def syncNodesTable(self, id, walletAddress, balance, ip, port, utxos=None):
         '''
         Method to update the nodesTable dictionary of the node
@@ -67,7 +67,6 @@ class Node:
 
         if utxos is not None:
             self.utxos.update(utxos)
-
 
     def create_transaction(self, receiver, value):
         # the sender address is the address of the node that creates the transaction
@@ -89,7 +88,7 @@ class Node:
         if sum < value:
             # not enough NBCs
             return None
-        
+
         # create the new transaction and sign it
         transaction = Transaction(
             sender_address, receiver_address, value, transaction_inputs)
@@ -108,12 +107,11 @@ class Node:
             iRecipient = newUTXO['recipient_id']
             newEntry = {newUTXO['transaction_output_id']: newUTXO}
             self.utxos[iRecipient].update(newEntry)
-        
+
         transactions_log = open(f'logs/transactions{self.Id}_{self.chain.sizeOfBlock}_{self.difficulty}.txt', 'a')
         transactions_log.write(f'{transaction.timestamp}\n')
         transactions_log.close()
         return transaction
-
 
     def broadcast_transaction(self, transaction: Transaction):
         '''
@@ -127,7 +125,6 @@ class Node:
 
         # add the transaction to my running block
         self.addTransactionToBlock(transaction)
-            
 
     def validate_transaction(self, transaction: Transaction):
         if not transaction.verify_signature():
@@ -146,18 +143,18 @@ class Node:
         # the transaction isn't valid
         if sum < transaction.amount:
             return False
-        
+
         # check outputs
         for _, utxo in transaction.transaction_outputs.items():
             if utxo['recipient_id'] == transaction.receiver_address:
                 if utxo['amount'] != transaction.amount:
-                    #print('edw3')
+                    # print('edw3')
                     return False
             if utxo['recipient_id'] == transaction.sender_address:
                 if utxo['amount'] != sum - transaction.amount:
-                    #print('edw4')
+                    # print('edw4')
                     return False
-                
+
         # remove previous utxos using the keys from the transaction inputs
         for trInput in transaction.transaction_inputs:
             old_transaction_output_id = trInput['previous_output_id']
@@ -172,24 +169,21 @@ class Node:
             newEntry = {newUTXO['transaction_output_id']: newUTXO}
             self.utxos[iRecipient].update(newEntry)
 
-        
         return True
 
-
-    def wallet_balance(self, walletAddress = None):
+    def wallet_balance(self, walletAddress=None):
         if (walletAddress == None):
             walletAddress = self.wallet.public_key
         sum = 0
         for _, utxo in self.utxos[walletAddress].items():
             sum += utxo['amount']
         return sum
-    
-    
+
     def addTransactionToBlock(self, transaction: Transaction):
         # if theres an active conflict, add the transaction to
         # the transactions to be recovered
-        
-        currentRunningBlock =  self.runningBlock
+
+        currentRunningBlock = self.runningBlock
         self.acquiredTansactions[transaction.transaction_id] = currentRunningBlock
         isBlockFull = currentRunningBlock.add_transaction(transaction)
 
@@ -200,29 +194,28 @@ class Node:
             thread = Thread(target=self.mine_block, args=(currentRunningBlock, stopEvent,))
             self.miningStopEvents[currentRunningBlock.timestamp] = stopEvent
             thread.start()
-            
 
     def mine_block(self, block: Block, stopEvent: Event):
 
         block.nonce = randint(0, maxsize)
         interuptedFlag = stopEvent.is_set()
 
-        #print('starting mining',self.chain.getLastBlock().getHash())
-        while not (block.getHash().startswith(self.difficulty*'0') or interuptedFlag or self.conflictActive):
+        # print('starting mining',self.chain.getLastBlock().getHash())
+        while not (block.getHash().startswith(self.difficulty * '0') or interuptedFlag or self.conflictActive):
             startingTransactions = block.getAllTransactionsIds()
             interuptedFlag = stopEvent.is_set()
-            block.nonce    = randint(0, maxsize)
+            block.nonce = randint(0, maxsize)
             block.hash = None
-        
+
         if not (interuptedFlag or self.conflictActive):
             if startingTransactions == block.getAllTransactionsIds():
-                print("\n-----------------Mined block-----------------\n")               
+                print("\n-----------------Mined block-----------------\n")
                 if not self.conflictActive:
                     self.chainLock.acquire()
-                    
+
                     self.chain.addBlock(block)
                     self.chainLock.release()
-                    #print("mpike kai sto chain")
+                    # print("mpike kai sto chain")
                     for miningEvent in self.miningStopEvents.values():
                         miningEvent.set()
                 if not self.conflictActive:
@@ -234,9 +227,9 @@ class Node:
                                 del self.acquiredTansactions[iTransaction]
                             except:
                                 pass
-                
+
         else:
-            #print("mining interupted" ,self.chain.getLastBlock().getHash())
+            # print("mining interupted" ,self.chain.getLastBlock().getHash())
             acquiredTansactions = self.acquiredTansactions.copy().keys()
             for iTransactionId in block.listOfTransactions.copy().keys():
                 if iTransactionId in acquiredTansactions:
@@ -246,7 +239,6 @@ class Node:
                     except:
                         pass
 
-
     def broadcast_block(self, block: Block):
         for id, tableInfoDict in self.nodesTable.items():
             if self.Id != id:
@@ -254,34 +246,31 @@ class Node:
                 if not self.conflictActive:
                     response = requests.put(addressString, json=block.toDict(), timeout=1000)
 
-
-    def validate_block(self, block: Block, currentLastBlockHash = None, chain: Blockchain = None):
+    def validate_block(self, block: Block, currentLastBlockHash=None, chain: Blockchain = None):
         if chain == None:
             chain = self.chain
         if currentLastBlockHash == None:
             currentLastBlockHash = '1'
             lastBlock = chain.getLastBlock()
-            if(lastBlock != None):
+            if (lastBlock != None):
                 currentLastBlockHash = chain.getLastBlock().getHash()
         # 'wrongHash' for invalid block hash
         # 'conflict' for conflict in previous Hash
         # 'valid' for fully valid block
-        if not block.getHash().startswith(self.difficulty*'0'):
-            #print('oxi starts with')
+        if not block.getHash().startswith(self.difficulty * '0'):
+            # print('oxi starts with')
             return (False, 'wrongHash')
         currentLastBlockHash = chain.getLastBlock().getHash()
         if block.previousHash != currentLastBlockHash:
-            #print('oxi consensus')
+            # print('oxi consensus')
             return (False, 'conflict')
         elif self.conflictActive:
-            #print('ksypna')
+            # print('ksypna')
             return False, ''
-        
-        
-        return (True, 'valid')
-    
 
-    def validate_chain(self, chain = None):
+        return (True, 'valid')
+
+    def validate_chain(self, chain=None):
         if chain == None:
             chain = self.chain
         blocksList = chain.listOfBlocks
@@ -294,16 +283,14 @@ class Node:
                 return False
             currentLastBlockHash = blocksList[i].getHash()
         return True
-    
 
-    def wallet_balance(self, walletAddress = None):
+    def wallet_balance(self, walletAddress=None):
         if (walletAddress == None):
             walletAddress = self.wallet.public_key
         sum = 0
         for _, utxo in self.utxos[walletAddress].items():
             sum += utxo['amount']
         return sum
-
 
     def resolve_conflict(self, broadcast=True):
         # pause mining
@@ -317,30 +304,25 @@ class Node:
         if broadcast:
             responsesBool = True
             while not (len(self.conflictedChainSizes) == self.nodeCount and responsesBool):
-                #print("conflict broadcaster", get_ident(), self.conflictedChainSizes)  
+                # print("conflict broadcaster", get_ident(), self.conflictedChainSizes)
                 responsesBool = True
                 for id, tableInfoDict in self.nodesTable.items():
                     if self.Id != id:
                         addressString = f"http://{tableInfoDict['ip']}:{tableInfoDict['port']}/api/resolveConflicts"
-                        response  = requests.put(addressString, json=self.conflictedChainSizes, timeout=1000)
+                        response = requests.put(addressString, json=self.conflictedChainSizes, timeout=1000)
                         responsesBool = responsesBool and (len(response.json()) == self.nodeCount)
-                        #print(responsesBool, (len(response.json()) == self.nodeCount), len(response.json()), self.nodeCount)
-                        self.conflictedChainSizes.update(response.json()) 
-            
+                        # print(responsesBool, (len(response.json()) == self.nodeCount), len(response.json()), self.nodeCount)
+                        self.conflictedChainSizes.update(response.json())
+
             if len(self.conflictedChainSizes) == self.nodeCount and not self.Choosing and responsesBool:
                 self.Choosing = True
                 for id, tableInfoDict in self.nodesTable.items():
                     if self.Id != id:
                         addressString = f"http://{tableInfoDict['ip']}:{tableInfoDict['port']}/api/chooseConflictResolution"
-                        response  = requests.get(addressString, timeout=1000)
+                        response = requests.get(addressString, timeout=1000)
                 conflictThread = Thread(target=self.chooseConflictedChain, args=())
                 conflictThread.start()
                 conflictThread.join()
-
-        
-            
-            
-                    
 
     def createListenerChoiceThread(self):
         sleep(0.2)
@@ -350,40 +332,38 @@ class Node:
             conflictThread.start()
             conflictThread.join()
 
-
-
     def chooseConflictedChain(self):
-        #print("choice", self.conflictedChainSizes)
-        
+        # print("choice", self.conflictedChainSizes)
 
         # if all chain sizes are erqual, choose the chain of the node with the smallest id
         # (always the bootstrap in our case)
         countInvalidBlocks = 0
-        if all(chainSize == self.conflictedChainSizes[str(self.Id)] for chainSize in self.conflictedChainSizes.values()):
+        if all(chainSize == self.conflictedChainSizes[str(self.Id)] for chainSize in
+               self.conflictedChainSizes.values()):
             chosenChainId = int(min(self.conflictedChainSizes.keys()))
         else:
             chosenChainId = int(max(self.conflictedChainSizes, key=self.conflictedChainSizes.get))
-        #print(chosenChainId, self.Id)
+        # print(chosenChainId, self.Id)
         if chosenChainId != self.Id:
-            
+
             chosenInfo = self.nodesTable[chosenChainId]
             addressString = f"http://{chosenInfo['ip']}:{chosenInfo['port']}/api/chooseConflictResolution"
-            response      = requests.put(addressString, 
-                                        json={"lastBlockHash": self.chain.getLastBlock().getHash(),
-                                              "numOfInvalidBlocks": countInvalidBlocks},
-                                        timeout=1000)
-            
+            response = requests.put(addressString,
+                                    json={"lastBlockHash": self.chain.getLastBlock().getHash(),
+                                          "numOfInvalidBlocks": countInvalidBlocks},
+                                    timeout=1000)
+
             isBlockValid = response.json()["isBlockValid"]
             while not isBlockValid:
                 countInvalidBlocks += 1
-                #print("eeeeeee",self.chain.listOfBlocks.pop())
+                # print("eeeeeee",self.chain.listOfBlocks.pop())
                 response = requests.put(addressString,
                                         json={"lastBlockHash": self.chain.getLastBlock().getHash(),
                                               "numOfInvalidBlocks": countInvalidBlocks},
                                         timeout=1000)
-                
+
                 isBlockValid = response.json()["isBlockValid"]
-            
+
             newBlocks = response.json()["blocksToAdd"]
             for iBlockDict in newBlocks:
                 self.chain.addBlock(dictToBlock(iBlockDict))
@@ -393,19 +373,18 @@ class Node:
         self.conflictNewBlocks = newBlocks
         chosenInfo = self.nodesTable[self.Id]
         addressString = f"http://{chosenInfo['ip']}:{chosenInfo['port']}/api/runRecoverFromConflict"
-        response      = requests.put(addressString, 
-                                        json={"myChainChosen": countInvalidBlocks==0})
-        #print("esteila recover")
-        #print("\n", self.conflictActive, self.Choosing, "\n") 
-                
+        response = requests.put(addressString,
+                                json={"myChainChosen": countInvalidBlocks == 0})
+        # print("esteila recover")
+        # print("\n", self.conflictActive, self.Choosing, "\n")
 
     def recoverFromConflict(self, myChainChosen):
-        #print("mpika recover")
-        
+        # print("mpika recover")
+
         self.conflictActive = False
         self.Choosing = False
         for id, iTransaction in self.runningBlock.listOfTransactions.items():
-                self.addTransactionToBlock(dictToTransaction(iTransaction))
+            self.addTransactionToBlock(dictToTransaction(iTransaction))
         del self.runningBlock
         self.runningBlock = Block(self.chain.sizeOfBlock)
         if not myChainChosen:
@@ -413,7 +392,7 @@ class Node:
                 for id, iTransaction in self.recoveryTransactions.copy().items():
                     for iNewBlockDicts in self.conflictNewBlocks:
                         iNewBlock = dictToBlock(iNewBlockDicts)
-                        if not id in  iNewBlock.listOfTransactions.keys():
+                        if not id in iNewBlock.listOfTransactions.keys():
                             self.broadcast_transaction(iTransaction)
                             self.addTransactionToBlock(iTransaction)
                     try:
@@ -431,24 +410,21 @@ class Node:
                         pass
 
         # if len(self.chain.listOfBlocks)>2:
-            # for i in range(2):
-                # #print(i+1, self.chain.listOfBlocks[-(i+1)].getAllTransactionsIds())
+        # for i in range(2):
+        # #print(i+1, self.chain.listOfBlocks[-(i+1)].getAllTransactionsIds())
         self.conflictedChainSizes.clear()
         self.recoveryTransactions.clear()
-    
-
 
     def createListenerConflictThread(self):
         if not self.Choosing:
             resolveThread = Thread(target=self.resolve_conflict, args=(False,))
             resolveThread.start()
             resolveThread.join()
-    
+
     def createBroadcasterConflictThread(self):
         if not self.Choosing:
             resolveThread = Thread(target=self.resolve_conflict, args=())
             resolveThread.start()
-
 
     def view_transactions(self):
         pkeyToId = {}
@@ -460,11 +436,10 @@ class Node:
             transactions[i] = {}
             transactions[i]["amount"] = transaction["amount"]
             transactions[i]["receiver_address"] = pkeyToId[transaction["receiver_address"]]
-            if(transaction["sender_address"] != '0'):
+            if (transaction["sender_address"] != '0'):
                 transactions[i]["sender_address"] = pkeyToId[transaction["sender_address"]]
             transactions[i]["timestamp"] = datetime.fromtimestamp(transaction["timestamp"])
         return transactions
-
 
     def writeWalletFiles(self, privateFilename, publicFilename):
         with open(privateFilename, 'wb') as keyOut:
@@ -474,21 +449,21 @@ class Node:
 
     def createResolveThread(self):
         self.conflictActive = True
-        self.chainLengths   = {}
+        self.chainLengths = {}
         requestThreads = []
         lengthsLock = Lock()
         for id, tableInfoDict in self.nodesTable.items():
             if self.Id != id:
                 addressString = f"http://{tableInfoDict['ip']}:{tableInfoDict['port']}/api/getChainLength"
-                iThread = Thread(target=self.resolveThread, args=(addressString,lengthsLock, ))
+                iThread = Thread(target=self.resolveThread, args=(addressString, lengthsLock,))
                 requestThreads.append(iThread)
                 iThread.start()
-        
+
         for iThread in requestThreads:
             iThread.join()
-        
+
         self.chainLengths[str(self.Id)] = len(self.chain.getlistOfDictBlocks())
-        #print(self.chainLengths)
+        # print(self.chainLengths)
         if all(chainSize == self.chainLengths[str(self.Id)] for chainSize in self.chainLengths.values()):
             chosenChainId = int(min(self.chainLengths.keys()))
         else:
@@ -499,19 +474,17 @@ class Node:
         if chosenChainId != self.Id:
             chosenInfo = self.nodesTable[chosenChainId]
             addressString = f"http://{chosenInfo['ip']}:{chosenInfo['port']}/api/getChain"
-            response      = requests.get(addressString, 
-                                                    timeout=10000)
-            #print("phra to", chosenChainId)
-            tempChainList    = response.json()['chain']    
+            response = requests.get(addressString,
+                                    timeout=10000)
+            # print("phra to", chosenChainId)
+            tempChainList = response.json()['chain']
             self.chain.listOfBlocks.clear()
             # get the blocks from the blockchain that was sent
             for iBlockDict in tempChainList:
                 iBlock = dictToBlock(iBlockDict)
                 self.chain.addBlock(iBlock)
         self.conflictActive = False
-        
 
-    
     def resolveThread(self, addressString, lengthsLock):
         response = requests.get(addressString, timeout=1000)
         with lengthsLock:

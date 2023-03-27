@@ -4,14 +4,16 @@ from backend.node import Node
 from backend.block import Block, dictToBlock
 from threading import Event, Thread
 
+
 def broadcastBlockConstructor(myNode: Node):
     broadcastBlock = Blueprint('broadcastBlock', __name__)
 
     @broadcastBlock.route('/', methods=['PUT'])
     def broadcastBlockActions():
-        response = {"nodeId": myNode.Id, "lastHashAfterInsertion": myNode.chain.getLastBlock().getHash(), "conflict": False}   
-        
-        payload  = request.get_json()
+        response = {"nodeId": myNode.Id, "lastHashAfterInsertion": myNode.chain.getLastBlock().getHash(),
+                    "conflict": False}
+
+        payload = request.get_json()
 
         newBlock = dictToBlock(payload)
         isValid, code = myNode.validate_block(newBlock)
@@ -49,15 +51,14 @@ def broadcastBlockConstructor(myNode: Node):
             else:
                 response.update({'otherError': True})
             return response, 200
-        
-        myNode.chainLock.acquire()                    
+
+        myNode.chainLock.acquire()
         myNode.chain.addBlock(newBlock)
         myNode.chainLock.release()
         print("apexw to vala")
 
-                
         print('\n-----------------valid-----------------\n', newBlock.getHash())
 
         return response, 200
-    
+
     return broadcastBlock

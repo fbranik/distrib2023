@@ -21,11 +21,12 @@ def createNewTransactionConstructor(myNode):
                 myNode.broadcast_transaction(transaction)
                 for k, v in myNode.nodesTable.items():
                     print(k, myNode.wallet_balance(v['walletAddress']))
-                print("\n", myNode.conflictActive, myNode.Choosing, "\n")    
+                print("\n", myNode.conflictActive, myNode.Choosing, "\n")
                 return jsonify({'Status': 'Ok'}), 200
             else:
                 myBalance = myNode.wallet_balance(myNode.wallet.public_key)
-                return jsonify({'Error': "Not enough NBCs: Sender Balance={}, Transaction amount = {}\n".format(myBalance, amount)}), 500
+                return jsonify({'Error': "Not enough NBCs: Sender Balance={}, Transaction amount = {}\n".format(
+                    myBalance, amount)}), 500
         else:
             return jsonify({'Error': "Invalid nodes Table\n"}), 500
 

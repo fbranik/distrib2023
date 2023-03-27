@@ -1,19 +1,21 @@
 import requests
-from flask import request, Blueprint,jsonify
+from flask import request, Blueprint, jsonify
 from backend.node import Node
 from backend.block import Block, dictToBlock
 from threading import Event, Thread
 from time import sleep
+
+
 def chooseConflictResolutionConstructor(myNode: Node):
     chooseConflictResolution = Blueprint('chooseConflictResolution', __name__)
-    
+
     @chooseConflictResolution.route('/', methods=['PUT', 'GET'])
     def chooseConflictResolutionActions():
         if request.method == 'PUT':
-            
+
             payload = request.get_json()
             senderLastBlockHash = payload["lastBlockHash"]
-            senderInvalidCount  = payload["numOfInvalidBlocks"]
+            senderInvalidCount = payload["numOfInvalidBlocks"]
             isValid = False
             countBlocks = 0
             for iBlock in reversed(myNode.chain.listOfBlocks):
@@ -29,8 +31,7 @@ def chooseConflictResolutionConstructor(myNode: Node):
 
             return response, 200
         if request.method == 'GET':
-            
             myNode.createListenerChoiceThread()
             return {}, 200
-    
+
     return chooseConflictResolution

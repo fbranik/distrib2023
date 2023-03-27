@@ -15,17 +15,17 @@ class Wallet:
     def __init__(self, privateKeyFile=None, publicKeyFile=None, transactionsFile=None):
 
         privateKeyObject = rsa.generate_private_key(backend=crypto_default_backend(),
-                                                         public_exponent=65537,
-                                                         key_size=1024
-                                                   )
-        
+                                                    public_exponent=65537,
+                                                    key_size=1024
+                                                    )
+
         self.private_key = privateKeyObject.private_bytes(crypto_serialization.Encoding.PEM,
                                                           crypto_serialization.PrivateFormat.PKCS8,
                                                           crypto_serialization.NoEncryption()
-                                                         ).hex()
+                                                          ).hex()
 
-        self.public_key  = privateKeyObject.public_key().public_bytes(crypto_serialization.Encoding.OpenSSH,
-                                                                      crypto_serialization.PublicFormat.OpenSSH
+        self.public_key = privateKeyObject.public_key().public_bytes(crypto_serialization.Encoding.OpenSSH,
+                                                                     crypto_serialization.PublicFormat.OpenSSH
                                                                      ).hex()
         self.transactions = []
 
@@ -37,4 +37,3 @@ class Wallet:
             return balance
         else:
             return -1
-        

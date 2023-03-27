@@ -16,7 +16,6 @@
 # print(myTransaction.transaction_id)
 
 
-
 # otherPublic = serialization.load_pem_public_key(otherWallet.public_key)
 # myPublic    = serialization.load_pem_public_key(myWallet.public_key)
 

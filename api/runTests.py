@@ -7,6 +7,7 @@ from time import sleep
 from os.path import exists
 from os import remove as removeFile
 
+
 def runTestsConstructor(myNode: Node, myIp, myPort):
     runTests = Blueprint('runTests', __name__)
 
@@ -16,20 +17,20 @@ def runTestsConstructor(myNode: Node, myIp, myPort):
         if exists(f'logs/transactions{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt'):
             removeFile(f'logs/transactions{myNode.Id}_{myNode.chain.sizeOfBlock}_{myNode.difficulty}.txt')
         testThread = Thread(target=transactionRequest, args=(myNode, nodes, myIp, myPort,))
-        testThread.start()    
+        testThread.start()
         return jsonify({'Status': 'Ok'}), 200
 
     return runTests
 
 
-def transactionRequest(myNode:Node, nodes, myIp, myPort):
+def transactionRequest(myNode: Node, nodes, myIp, myPort):
     f = open(f"transactions/{nodes}nodes/transactions{myNode.Id}.txt", "r")
     lines = f.readlines()
     for line in lines:
         t = line.split(' ')
         receiver = int(t[0][2:])
-        amount  = int(t[1])
-        addressString    = f'http://{myIp}:{myPort}/api/createNewTransaction/?recipientId={receiver}&amount={amount}'
+        amount = int(t[1])
+        addressString = f'http://{myIp}:{myPort}/api/createNewTransaction/?recipientId={receiver}&amount={amount}'
         bootsrapResponse = requests.get(addressString)
         # sleep(2)
     f.close()
